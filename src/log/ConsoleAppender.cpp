@@ -13,6 +13,7 @@
 */
 // Local
 #include "ConsoleAppender.h"
+#include "dgconfigure_p.h"
 
 // STL
 #include <iostream>
@@ -22,12 +23,12 @@ DCORE_BEGIN_NAMESPACE
 /*!
   \class Dtk::Core::ConsoleAppender
   \inmodule dtkcore
-  
+
   \brief ConsoleAppender is the simple appender that writes the log records to the std::cerr output stream.
-  
+
   ConsoleAppender uses "[%{type:-7}] <%{function}> %{message}\n" as a default output format. It is similar to the
   AbstractStringAppender but doesn't show a timestamp.
-  
+
   You can modify ConsoleAppender output format without modifying your code by using \c QT_MESSAGE_PATTERN environment
   variable. If you need your application to ignore this environment variable you can call
   ConsoleAppender::ignoreEnvironmentPattern(true)
@@ -38,14 +39,28 @@ ConsoleAppender::ConsoleAppender()
   : AbstractStringAppender(),
     m_ignoreEnvPattern(false)
 {
-  setFormat("[%{type:-7}] <%{function}> %{message}\n");
+    setFormat(CUTELOGGER_DEFAULT_LOG_FORMAT);
 }
 
 
 QString ConsoleAppender::format() const
 {
-  const QString envPattern = QString::fromLocal8Bit(qgetenv("QT_MESSAGE_PATTERN"));
-  return (m_ignoreEnvPattern || envPattern.isEmpty()) ? AbstractStringAppender::format() : (envPattern + "\n");
+  QString fmt(AbstractStringAppender::format());
+  if (!fmt.isEmpty() && fmt != CUTELOGGER_DEFAULT_LOG_FORMAT) {
+    return fmt;
+  }
+  if (!m_ignoreEnvPattern) {
+    fmt = QString::fromLocal8Bit(qgetenv("DTK_MESSAGE_PATTERN"));
+    if (!fmt.isEmpty()) {
+      return fmt;
+    }
+  }
+  fmt = gConfigure->getValue("logFormat");
+  if (fmt != "default") {
+    return fmt;
+  }
+
+  return CUTELOGGER_DEFAULT_LOG_FORMAT;
 }
 
 

@@ -16,6 +16,7 @@
  */
 
 #include "LogManager.h"
+#include "dgconfigure_p.h"
 #include <Logger.h>
 #include <ConsoleAppender.h>
 #include <RollingFileAppender.h>
@@ -31,10 +32,11 @@ DCORE_BEGIN_NAMESPACE
 
 DLogManager::DLogManager()
 {
+    // 不加这两个宏中的任一个则无法打印文件名、行号、函数名，那就只打印时间、Log类型、内容
 #if !defined(QT_DEBUG) && !defined(QT_MESSAGELOGCONTEXT)
     m_format = "%{time}{yyyy-MM-dd, HH:mm:ss.zzz} [%{type:-7}] %{message}\n";
 #else
-    m_format = "%{time}{yyyy-MM-dd, HH:mm:ss.zzz} [%{type:-7}] [%{file:-20} %{function:-35} %{line}] %{message}\n";
+    m_format = CUTELOGGER_DEFAULT_LOG_FORMAT;
 #endif
 }
 
@@ -45,10 +47,31 @@ void DLogManager::initConsoleAppender(){
 }
 
 void DLogManager::initRollingFileAppender(){
+    // get rolling number from gsettings, default is 5
+    QString result(gConfigure->getValue("rollingNumber"));
+    int rollingNum = 5;
+    if (result != "default") {
+        bool success;
+        int num = result.toInt(&success);
+        if (success && num > 0)
+            rollingNum =  num;
+    }
+
+    RollingFileAppender::DatePattern pattern = RollingFileAppender::DailyRollover;
+    result = gConfigure->getValue("datePattern");
+    if (result != "default") {
+        bool success;
+        int num = result.toInt(&success);
+        if (success && num >= static_cast<RollingFileAppender::DatePattern>(RollingFileAppender::MinutelyRollover)
+                && num <= static_cast<RollingFileAppender::DatePattern>(RollingFileAppender::MonthlyRollover)) {
+            pattern = static_cast<RollingFileAppender::DatePattern>(num);
+        }
+    }
+
     m_rollingFileAppender = new RollingFileAppender(getlogFilePath());
     m_rollingFileAppender->setFormat(m_format);
-    m_rollingFileAppender->setLogFilesLimit(5);
-    m_rollingFileAppender->setDatePattern(RollingFileAppender::DailyRollover);
+    m_rollingFileAppender->setLogFilesLimit(rollingNum);
+    m_rollingFileAppender->setDatePattern(pattern);
     logger->registerAppender(m_rollingFileAppender);
 }
 
@@ -84,6 +107,19 @@ QString DLogManager::getlogFilePath()
     // 不再构造时去设置默认logpath(且mkdir), 而在getlogPath时再去判断是否设置默认值
     // 修复设置了日志路径还是会在默认的位置创建目录的问题
     if (DLogManager::instance()->m_logPath.isEmpty()) {
+        // 从gsettings获取配置的优先级更高
+        QString gLogPath = gConfigure->getValue("logPath");
+//         qDebug() << "path from gsetting." << gLogPath;
+        if (!gLogPath.isEmpty() && gLogPath != "default") {
+            if (!QFileInfo(gLogPath).exists()) {
+//                qDebug() << "not exist." << gLogPath;
+            } else {
+//                qDebug() << "exist." << gLogPath;
+                DLogManager::instance()->m_logPath = DLogManager::instance()->joinPath(gLogPath, QString("%1.log").arg(qApp->applicationName()));
+                return QDir::toNativeSeparators(DLogManager::instance()->m_logPath);
+            }
+        }
+
         if (QDir::homePath() == QDir::rootPath()) {
             qWarning() << "unable to locate the cache directory."
                        << "logfile path is empty, the log will not be written.\r\n"

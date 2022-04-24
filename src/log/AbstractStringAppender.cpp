@@ -23,6 +23,7 @@
 #include <QRegExp>
 #include <QCoreApplication>
 #include <QThread>
+#include <iostream>
 
 DCORE_BEGIN_NAMESPACE
 
@@ -48,12 +49,11 @@ DCORE_BEGIN_NAMESPACE
 
 const char formattingMarker = '%';
 
-
 /*!
     \brief Constructs a new string appender object.
  */
 AbstractStringAppender::AbstractStringAppender()
-  : m_format(QLatin1String("%{time}{yyyy-MM-ddTHH:mm:ss.zzz} [%{type:-7}] <%{function}> %{message}\n"))
+  : m_format(CUTELOGGER_DEFAULT_LOG_FORMAT)
 {}
 
 /*!

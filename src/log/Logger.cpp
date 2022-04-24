@@ -764,9 +764,7 @@ Logger* Logger::globalInstance()
 void Logger::registerAppender(AbstractAppender* appender)
 {
   Q_D(Logger);
-
   QMutexLocker locker(&d->loggerMutex);
-
   if (!d->appenders.contains(appender))
     d->appenders.append(appender);
   else
